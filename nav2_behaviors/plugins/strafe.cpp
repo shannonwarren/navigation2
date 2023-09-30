@@ -19,16 +19,16 @@ namespace nav2_behaviors
 
 Status Strafe::onRun(const std::shared_ptr<const StrafeAction::Goal> command)
 {
-  if (command->target.y != 0.0 || command->target.z != 0.0) {
+  if (command->target.x != 0.0 || command->target.z != 0.0) {
     RCLCPP_INFO(
       logger_,
-      "Backing up in Y and Z not supported, will only move in X.");
+      "Strafing in y axis only");
     return Status::FAILED;
   }
 
   // Silently ensure that both the speed and direction are negative.
-  command_x_ = -std::fabs(command->target.x);
-  command_speed_ = -std::fabs(command->speed);
+  command_x_ = command->target.y;
+  command_speed_ = command->speed;
   command_time_allowance_ = command->time_allowance;
 
   end_time_ = steady_clock_.now() + command_time_allowance_;
@@ -77,9 +77,9 @@ Status Strafe::onCycleUpdate()
     }
 
     auto cmd_vel = std::make_unique<geometry_msgs::msg::Twist>();
-    cmd_vel->linear.y = 0.0;
+    cmd_vel->linear.x = 0.0;
     cmd_vel->angular.z = 0.0;
-    cmd_vel->linear.x = command_speed_;
+    cmd_vel->linear.y = command_speed_;
 
     geometry_msgs::msg::Pose2D pose2d;
     pose2d.x = current_pose.pose.position.x;
@@ -88,7 +88,7 @@ Status Strafe::onCycleUpdate()
 
     if (!isCollisionFree(distance, cmd_vel.get(), pose2d)) {
       this->stopRobot();
-      RCLCPP_WARN(this->logger_, "Collision Ahead - Exiting DriveOnHeading");
+      RCLCPP_WARN(this->logger_, "Collision Ahead - Exiting Strafing");
       return Status::FAILED;
     }
 

@@ -34,8 +34,8 @@ StrafeAction::StrafeAction(
   getInput("time_allowance", time_allowance);
 
   // Populate the input message
-  goal_.target.x = dist;
-  goal_.target.y = 0.0;
+  goal_.target.x = 0.0;
+  goal_.target.y = dist;
   goal_.target.z = 0.0;
   goal_.speed = speed;
   goal_.time_allowance = rclcpp::Duration::from_seconds(time_allowance);
