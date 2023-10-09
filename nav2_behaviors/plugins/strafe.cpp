@@ -45,7 +45,7 @@ Status Strafe::onRun(const std::shared_ptr<const StrafeAction::Goal> command)
 }
 
 Status Strafe::onCycleUpdate()
-  {
+{
     rclcpp::Duration time_remaining = end_time_ - this->steady_clock_.now();
     if (time_remaining.seconds() < 0.0 && command_time_allowance_.seconds() > 0.0) {
       this->stopRobot();
@@ -111,7 +111,7 @@ bool Strafe::isCollisionFree(
     bool fetch_data = true;
 
     while (cycle_count < max_cycle_count) {
-      sim_position_change = cmd_vel->linear.x * (cycle_count / this->cycle_frequency_);
+      sim_position_change = cmd_vel->linear.y * (cycle_count / this->cycle_frequency_);
       pose2d.x = init_pose.x + sim_position_change * cos(init_pose.theta);
       pose2d.y = init_pose.y + sim_position_change * sin(init_pose.theta);
       cycle_count++;

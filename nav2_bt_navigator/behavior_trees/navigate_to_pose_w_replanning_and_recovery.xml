@@ -1,4 +1,3 @@
-
 <!--
   This BT has all the functionalities of navigate_to_pose_w_replanning_and_recovery.xml,
   with an additional feature to cancel the control closer to the goal proximity and 
@@ -8,37 +7,47 @@
 <root main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
     <RecoveryNode number_of_retries="6" name="NavigateRecovery">
-
       <PipelineSequence name="NavigateWithReplanning">
         <RateController hz="1.0">
-          <Fallback> 
-            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+           <RecoveryNode number_of_retries="1" name="ComputePathToPose">
+            <Fallback>
+              <ReactiveSequence>
+                <Inverter>
+                  <PathExpiringTimer seconds="5" path="{path}"/>
+                </Inverter>
+                <Inverter>
+                  <GlobalUpdatedGoal/>
+                </Inverter>
+                <IsPathValid path="{path}"/>
+              </ReactiveSequence>
+              <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+            </Fallback>
             <ClearEntireCostmap name="ClearGlobalCostmap-Context" service_name="global_costmap/clear_entirely_global_costmap"/>
-          </Fallback>
+          </RecoveryNode>
         </RateController>
-
         <ReactiveSequence name="MonitorAndFollowPath">
-          <PathLongerOnApproach path="{path}" prox_len="1.5" length_factor="1.0">
+          <PathLongerOnApproach path="{path}" prox_len="5.0" length_factor="1.5">
             <RetryUntilSuccessful num_attempts="1">
               <SequenceStar name="CancelingControlAndWait">
                 <CancelControl name="ControlCancel"/>
-                <Wait wait_duration="5"/>
+                <Wait wait_duration="10"/>
               </SequenceStar>
             </RetryUntilSuccessful>
           </PathLongerOnApproach>
-          <RecoveryNode number_of_retries="6" name="FollowPath">
+          <RecoveryNode number_of_retries="1" name="FollowPath">
             <FollowPath path="{path}" controller_id="FollowPath"/>
             <Sequence name="ClearingActions">
               <ClearEntireCostmap name="ClearLocalCostmap-Subtree" service_name="local_costmap/clear_entirely_local_costmap"/>
               <ClearEntireCostmap name="ClearGlobalCostmap-Subtree" service_name="global_costmap/clear_entirely_global_costmap"/>
-              <BackUp backup_dist="0.20" backup_speed="0.05"/>
-              <!-- <BackUp backup_dist="-0.20" backup_speed="-0.05"/> -->
+              <BackUp backup_dist="0.30" backup_speed="0.05"/>
+              <!-- <Spin spin_dist="0.4"/> -->
+              <Wait wait_duration="2"/>
+              <Spin spin_dist="-0.4"/>
+              <DriveOnHeading dist_to_travel="0.60" speed="0.05"/>
             </Sequence>
           </RecoveryNode>
         </ReactiveSequence>
-        
       </PipelineSequence>
-
       <ReactiveFallback name="RecoveryFallback">
         <GoalUpdated/>
         <RoundRobin name="RecoveryActions">
@@ -47,11 +56,14 @@
             <ClearEntireCostmap name="ClearGlobalCostmap-Subtree" service_name="global_costmap/clear_entirely_global_costmap"/>
           </Sequence>
           <BackUp backup_dist="0.30" backup_speed="0.05"/>
-          <!-- <Spin spin_dist="0.8"/> -->
-          <!-- <Wait wait_duration="2"/> -->
-          <!-- <Spin spin_dist="-0.8"/> -->
+          <!-- <Spin spin_dist="0.4"/> -->
+          <Wait wait_duration="2"/>
+          <Spin spin_dist="-0.4"/>
+          <DriveOnHeading dist_to_travel="0.50" speed="0.05"/>
+          <!-- <Strafe strafe_dist="0.10" strafe_speed="0.05"/> -->
         </RoundRobin>
       </ReactiveFallback>
     </RecoveryNode>
   </BehaviorTree>
 </root>
+
