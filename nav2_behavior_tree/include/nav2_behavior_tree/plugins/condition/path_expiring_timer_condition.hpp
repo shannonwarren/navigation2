@@ -17,28 +17,29 @@
 
 #include <string>
 
-#include "rclcpp/rclcpp.hpp"
 #include "behaviortree_cpp_v3/condition_node.h"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "nav2_util/node_utils.hpp"
+#include "nav2_util/robot_utils.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "tf2_ros/buffer.h"
 
-namespace nav2_behavior_tree
-{
+namespace nav2_behavior_tree {
 
 /**
  * @brief A BT::ConditionNode that returns SUCCESS every time a specified
  * time period passes and FAILURE otherwise
  */
-class PathExpiringTimerCondition : public BT::ConditionNode
-{
+class PathExpiringTimerCondition : public BT::ConditionNode {
 public:
   /**
    * @brief A constructor for nav2_behavior_tree::PathExpiringTimerCondition
    * @param condition_name Name for the XML tag for this node
    * @param conf BT node configuration
    */
-  PathExpiringTimerCondition(
-    const std::string & condition_name,
-    const BT::NodeConfiguration & conf);
+  PathExpiringTimerCondition(const std::string &condition_name,
+                             const BT::NodeConfiguration &conf);
 
   PathExpiringTimerCondition() = delete;
 
@@ -52,13 +53,14 @@ public:
    * @brief Creates list of BT ports
    * @return BT::PortsList Containing node-specific ports
    */
-  static BT::PortsList providedPorts()
-  {
+  static BT::PortsList providedPorts() {
     return {
-      BT::InputPort<double>("seconds", 1.0, "Seconds"),
-      BT::InputPort<nav_msgs::msg::Path>("path")
-    };
+        BT::InputPort<double>("seconds", 1.0, "Seconds"),
+        BT::InputPort<nav_msgs::msg::Path>("path"),
+        BT::InputPort<geometry_msgs::msg::PoseStamped>("goal", "Destination")};
   }
+
+  bool isRobotNearGoal();
 
 private:
   rclcpp::Node::SharedPtr node_;
@@ -66,8 +68,13 @@ private:
   nav_msgs::msg::Path prev_path_;
   double period_;
   bool first_time_;
+
+  std::shared_ptr<tf2_ros::Buffer> tf_;
+  std::string global_frame_;
+  std::string robot_base_frame_;
+  double transform_tolerance_;
 };
 
-}  // namespace nav2_behavior_tree
+} // namespace nav2_behavior_tree
 
-#endif  // NAV2_BEHAVIOR_TREE__PLUGINS__CONDITION__PATH_EXPIRING_TIMER_CONDITION_HPP_
+#endif // NAV2_BEHAVIOR_TREE__PLUGINS__CONDITION__PATH_EXPIRING_TIMER_CONDITION_HPP_

@@ -1,32 +1,33 @@
-<!--
-  This BT has all the functionalities of navigate_to_pose_w_replanning_and_recovery.xml,
-  with an additional feature to cancel the control closer to the goal proximity and 
-  make the robot wait for a specific time, to see if the obstacle clears out before 
-  navigating along a significantly longer path to reach the goal location.
--->
 <root main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
     <RecoveryNode number_of_retries="6" name="NavigateRecovery">
       <PipelineSequence name="NavigateWithReplanning">
+
+        <PlannerSelector selected_planner="{selected_planner}" default_planner="GridBased" topic_name="planner_selector"/>
+
         <RateController hz="1.0">
            <RecoveryNode number_of_retries="1" name="ComputePathToPose">
             <Fallback>
               <ReactiveSequence>
                 <Inverter>
-                  <PathExpiringTimer seconds="5" path="{path}"/>
+                  <PathExpiringTimer seconds="60" path="{path}" goal="{goal}"/>
                 </Inverter>
                 <Inverter>
                   <GlobalUpdatedGoal/>
                 </Inverter>
                 <IsPathValid path="{path}"/>
               </ReactiveSequence>
-              <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+               <ComputePathToPose goal="{goal}" path="{path}" planner_id="{selected_planner}"/>
             </Fallback>
             <ClearEntireCostmap name="ClearGlobalCostmap-Context" service_name="global_costmap/clear_entirely_global_costmap"/>
           </RecoveryNode>
         </RateController>
+
+        <GoalCheckerSelector selected_goal_checker="{selected_goal_checker}" default_goal_checker="course_goal_checker" topic_name="goal_checker_selector"/>
+        <ControllerSelector selected_controller="{selected_controller}" default_controller="course_navigation" topic_name="controller_selector"/>
+
         <ReactiveSequence name="MonitorAndFollowPath">
-          <PathLongerOnApproach path="{path}" prox_len="5.0" length_factor="1.5">
+          <PathLongerOnApproach path="{path}" prox_len="5.0" length_factor="1.4">
             <RetryUntilSuccessful num_attempts="1">
               <SequenceStar name="CancelingControlAndWait">
                 <CancelControl name="ControlCancel"/>
@@ -34,20 +35,22 @@
               </SequenceStar>
             </RetryUntilSuccessful>
           </PathLongerOnApproach>
+
           <RecoveryNode number_of_retries="1" name="FollowPath">
-            <FollowPath path="{path}" controller_id="FollowPath"/>
+            <FollowPath path="{path}" controller_id="{selected_controller}" goal_checker_id="{selected_goal_checker}"/>
+
             <Sequence name="ClearingActions">
               <ClearEntireCostmap name="ClearLocalCostmap-Subtree" service_name="local_costmap/clear_entirely_local_costmap"/>
               <ClearEntireCostmap name="ClearGlobalCostmap-Subtree" service_name="global_costmap/clear_entirely_global_costmap"/>
               <BackUp backup_dist="0.30" backup_speed="0.05"/>
-              <!-- <Spin spin_dist="0.4"/> -->
               <Wait wait_duration="2"/>
-              <Spin spin_dist="-0.4"/>
-              <DriveOnHeading dist_to_travel="0.60" speed="0.05"/>
+              <!-- <Spin spin_dist="-0.1"/> -->
+              <!-- <DriveOnHeading dist_to_travel="0.60" speed="0.05"/> -->
             </Sequence>
           </RecoveryNode>
         </ReactiveSequence>
       </PipelineSequence>
+
       <ReactiveFallback name="RecoveryFallback">
         <GoalUpdated/>
         <RoundRobin name="RecoveryActions">
@@ -56,13 +59,12 @@
             <ClearEntireCostmap name="ClearGlobalCostmap-Subtree" service_name="global_costmap/clear_entirely_global_costmap"/>
           </Sequence>
           <BackUp backup_dist="0.30" backup_speed="0.05"/>
-          <!-- <Spin spin_dist="0.4"/> -->
           <Wait wait_duration="2"/>
-          <Spin spin_dist="-0.4"/>
-          <DriveOnHeading dist_to_travel="0.50" speed="0.05"/>
+          <!-- <Spin spin_dist="-0.1"/> -->
+          <!-- <DriveOnHeading dist_to_travel="0.50" speed="0.05"/> -->
           <!-- <Strafe strafe_dist="0.10" strafe_speed="0.05"/> -->
         </RoundRobin>
-      </ReactiveFallback>
+      </ReactiveFallback>  
     </RecoveryNode>
   </BehaviorTree>
 </root>

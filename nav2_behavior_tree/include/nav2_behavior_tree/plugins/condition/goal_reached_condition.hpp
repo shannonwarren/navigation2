@@ -15,31 +15,28 @@
 #ifndef NAV2_BEHAVIOR_TREE__PLUGINS__CONDITION__GOAL_REACHED_CONDITION_HPP_
 #define NAV2_BEHAVIOR_TREE__PLUGINS__CONDITION__GOAL_REACHED_CONDITION_HPP_
 
-#include <string>
 #include <memory>
+#include <string>
 
-#include "rclcpp/rclcpp.hpp"
 #include "behaviortree_cpp_v3/condition_node.h"
+#include "rclcpp/rclcpp.hpp"
 #include "tf2_ros/buffer.h"
 
-namespace nav2_behavior_tree
-{
+namespace nav2_behavior_tree {
 
 /**
  * @brief A BT::ConditionNode that returns SUCCESS when a specified goal
  * is reached and FAILURE otherwise
  */
-class GoalReachedCondition : public BT::ConditionNode
-{
+class GoalReachedCondition : public BT::ConditionNode {
 public:
   /**
    * @brief A constructor for nav2_behavior_tree::GoalReachedCondition
    * @param condition_name Name for the XML tag for this node
    * @param conf BT node configuration
    */
-  GoalReachedCondition(
-    const std::string & condition_name,
-    const BT::NodeConfiguration & conf);
+  GoalReachedCondition(const std::string &condition_name,
+                       const BT::NodeConfiguration &conf);
 
   GoalReachedCondition() = delete;
 
@@ -60,7 +57,8 @@ public:
   void initialize();
 
   /**
-   * @brief Checks if the current robot pose lies within a given distance from the goal
+   * @brief Checks if the current robot pose lies within a given distance from
+   * the goal
    * @return bool true when goal is reached, false otherwise
    */
   bool isGoalReached();
@@ -69,21 +67,20 @@ public:
    * @brief Creates list of BT ports
    * @return BT::PortsList Containing node-specific ports
    */
-  static BT::PortsList providedPorts()
-  {
+  static BT::PortsList providedPorts() {
     return {
-      BT::InputPort<geometry_msgs::msg::PoseStamped>("goal", "Destination"),
-      BT::InputPort<std::string>("global_frame", std::string("map"), "Global frame"),
-      BT::InputPort<std::string>("robot_base_frame", std::string("base_link"), "Robot base frame")
-    };
+        BT::InputPort<geometry_msgs::msg::PoseStamped>("goal", "Destination"),
+        BT::InputPort<std::string>("global_frame", std::string("map"),
+                                   "Global frame"),
+        BT::InputPort<std::string>("robot_base_frame", std::string("base_link"),
+                                   "Robot base frame")};
   }
 
 protected:
   /**
    * @brief Cleanup function
    */
-  void cleanup()
-  {}
+  void cleanup() {}
 
 private:
   rclcpp::Node::SharedPtr node_;
@@ -96,6 +93,6 @@ private:
   double transform_tolerance_;
 };
 
-}  // namespace nav2_behavior_tree
+} // namespace nav2_behavior_tree
 
-#endif  // NAV2_BEHAVIOR_TREE__PLUGINS__CONDITION__GOAL_REACHED_CONDITION_HPP_
+#endif // NAV2_BEHAVIOR_TREE__PLUGINS__CONDITION__GOAL_REACHED_CONDITION_HPP_
