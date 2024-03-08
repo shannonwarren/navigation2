@@ -12,9 +12,6 @@
             <Fallback>
               <ReactiveSequence>
                 <Inverter>
-                  <PathExpiringTimer seconds="10" path="{path}"/>
-                </Inverter>
-                <Inverter>
                   <GlobalUpdatedGoal/>
                 </Inverter>
                 <IsPathValid path="{path}"/>

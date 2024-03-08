@@ -12,29 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <string>
+#include <ctime>
 #include <memory>
+#include <string>
 
 #include "behaviortree_cpp_v3/condition_node.h"
 
 #include "nav2_behavior_tree/plugins/condition/path_expiring_timer_condition.hpp"
 
-namespace nav2_behavior_tree
-{
+namespace nav2_behavior_tree {
 
 PathExpiringTimerCondition::PathExpiringTimerCondition(
-  const std::string & condition_name,
-  const BT::NodeConfiguration & conf)
-: BT::ConditionNode(condition_name, conf),
-  period_(1.0),
-  first_time_(true)
-{
+    const std::string &condition_name, const BT::NodeConfiguration &conf)
+    : BT::ConditionNode(condition_name, conf), period_(1.0), first_time_(true),
+      global_frame_("map"), robot_base_frame_("base_link") {
   getInput("seconds", period_);
+  getInput("global_frame", global_frame_);
+  getInput("robot_base_frame", robot_base_frame_);
   node_ = config().blackboard->get<rclcpp::Node::SharedPtr>("node");
+  tf_ = config().blackboard->get<std::shared_ptr<tf2_ros::Buffer>>("tf_buffer");
+
+  node_->get_parameter("transform_tolerance", transform_tolerance_);
 }
 
-BT::NodeStatus PathExpiringTimerCondition::tick()
-{
+BT::NodeStatus PathExpiringTimerCondition::tick() {
   if (first_time_) {
     getInput("path", prev_path_);
     first_time_ = false;
@@ -42,11 +43,14 @@ BT::NodeStatus PathExpiringTimerCondition::tick()
     return BT::NodeStatus::FAILURE;
   }
 
+  // if (isRobotNearGoal()) {
+  //   return BT::NodeStatus::FAILURE;
+  // }
+
   // Grab the new path
   nav_msgs::msg::Path path;
   getInput("path", path);
 
-  // Reset timer if the path has been updated
   if (prev_path_ != path) {
     prev_path_ = path;
     start_ = node_->now();
@@ -62,14 +66,31 @@ BT::NodeStatus PathExpiringTimerCondition::tick()
     return BT::NodeStatus::FAILURE;
   }
 
-  start_ = node_->now();  // Reset the timer
+  start_ = node_->now(); // Reset the timer
   return BT::NodeStatus::SUCCESS;
 }
 
-}  // namespace nav2_behavior_tree
+bool PathExpiringTimerCondition::isRobotNearGoal() {
+  geometry_msgs::msg::PoseStamped current_pose;
+
+  if (!nav2_util::getCurrentPose(current_pose, *tf_, global_frame_,
+                                 robot_base_frame_, transform_tolerance_)) {
+    RCLCPP_DEBUG(node_->get_logger(), "Current robot pose is not available.");
+    return false;
+  }
+
+  geometry_msgs::msg::PoseStamped goal;
+  getInput("goal", goal);
+  double dx = goal.pose.position.x - current_pose.pose.position.x;
+  double dy = goal.pose.position.y - current_pose.pose.position.y;
+  std::cout << dx * dx + dy * dy << std::endl;
+  return (dx * dx + dy * dy) < (0.15);
+}
+
+} // namespace nav2_behavior_tree
 
 #include "behaviortree_cpp_v3/bt_factory.h"
-BT_REGISTER_NODES(factory)
-{
-  factory.registerNodeType<nav2_behavior_tree::PathExpiringTimerCondition>("PathExpiringTimer");
+BT_REGISTER_NODES(factory) {
+  factory.registerNodeType<nav2_behavior_tree::PathExpiringTimerCondition>(
+      "PathExpiringTimer");
 }

@@ -31,7 +31,7 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory('nav2_bringup')
 
     namespace = LaunchConfiguration('namespace')
-    map_yaml_file = LaunchConfiguration('map')
+    # map_yaml_file = LaunchConfiguration('map')
     use_sim_time = LaunchConfiguration('use_sim_time')
     autostart = LaunchConfiguration('autostart')
     params_file = LaunchConfiguration('params_file')
@@ -54,8 +54,7 @@ def generate_launch_description():
 
     # Create our own temporary YAML files that include substitutions
     param_substitutions = {
-        'use_sim_time': use_sim_time,
-        'yaml_filename': map_yaml_file}
+        'use_sim_time': use_sim_time}
 
     configured_params = RewrittenYaml(
         source_file=params_file,
@@ -73,6 +72,7 @@ def generate_launch_description():
 
     declare_map_yaml_cmd = DeclareLaunchArgument(
         'map',
+        default_value='/opt/felix/maps/vici_mart_sim',
         description='Full path to map yaml file to load')
 
     declare_use_sim_time_cmd = DeclareLaunchArgument(

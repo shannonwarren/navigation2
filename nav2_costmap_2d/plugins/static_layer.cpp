@@ -282,6 +282,9 @@ StaticLayer::incomingMap(const nav_msgs::msg::OccupancyGrid::SharedPtr new_map)
     map_received_ = true;
     return;
   }
+  // RCLCPP_INFO(logger_,"Updating map buffer! HERE HERE HERE 1");
+  // std::lock_guard<Costmap2D::mutex_t> guard(*getMutex());
+  // map_buffer_ = new_map;
 }
 
 void

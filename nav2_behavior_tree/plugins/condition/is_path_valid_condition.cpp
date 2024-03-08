@@ -17,23 +17,21 @@
 #include <memory>
 #include <string>
 
-namespace nav2_behavior_tree
-{
+namespace nav2_behavior_tree {
 
-IsPathValidCondition::IsPathValidCondition(
-  const std::string & condition_name,
-  const BT::NodeConfiguration & conf)
-: BT::ConditionNode(condition_name, conf)
-{
+IsPathValidCondition::IsPathValidCondition(const std::string &condition_name,
+                                           const BT::NodeConfiguration &conf)
+    : BT::ConditionNode(condition_name, conf) {
   node_ = config().blackboard->get<rclcpp::Node::SharedPtr>("node");
   client_ = node_->create_client<nav2_msgs::srv::IsPathValid>("is_path_valid");
 
-  server_timeout_ = config().blackboard->template get<std::chrono::milliseconds>("server_timeout");
+  server_timeout_ =
+      config().blackboard->template get<std::chrono::milliseconds>(
+          "server_timeout");
   getInput<std::chrono::milliseconds>("server_timeout", server_timeout_);
 }
 
-BT::NodeStatus IsPathValidCondition::tick()
-{
+BT::NodeStatus IsPathValidCondition::tick() {
   nav_msgs::msg::Path path;
   getInput("path", path);
 
@@ -43,8 +41,7 @@ BT::NodeStatus IsPathValidCondition::tick()
   auto result = client_->async_send_request(request);
 
   if (rclcpp::spin_until_future_complete(node_, result, server_timeout_) ==
-    rclcpp::FutureReturnCode::SUCCESS)
-  {
+      rclcpp::FutureReturnCode::SUCCESS) {
     if (result.get()->is_valid) {
       return BT::NodeStatus::SUCCESS;
     }
@@ -52,10 +49,30 @@ BT::NodeStatus IsPathValidCondition::tick()
   return BT::NodeStatus::FAILURE;
 }
 
-}  // namespace nav2_behavior_tree
+// bool IsPathValidCondition::isGoalReached()
+// {
+//   geometry_msgs::msg::PoseStamped current_pose;
+
+//   if (!nav2_util::getCurrentPose(
+//       current_pose, *tf_, global_frame_, robot_base_frame_,
+//       transform_tolerance_))
+//   {
+//     RCLCPP_DEBUG(node_->get_logger(), "Current robot pose is not
+//     available."); return false;
+//   }
+
+//   geometry_msgs::msg::PoseStamped goal;
+//   getInput("goal", goal);
+//   double dx = goal.pose.position.x - current_pose.pose.position.x;
+//   double dy = goal.pose.position.y - current_pose.pose.position.y;
+
+//   return (dx * dx + dy * dy) <= (goal_reached_tol_ * goal_reached_tol_);
+// }
+
+} // namespace nav2_behavior_tree
 
 #include "behaviortree_cpp_v3/bt_factory.h"
-BT_REGISTER_NODES(factory)
-{
-  factory.registerNodeType<nav2_behavior_tree::IsPathValidCondition>("IsPathValid");
+BT_REGISTER_NODES(factory) {
+  factory.registerNodeType<nav2_behavior_tree::IsPathValidCondition>(
+      "IsPathValid");
 }
