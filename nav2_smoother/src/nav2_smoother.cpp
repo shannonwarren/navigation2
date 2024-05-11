@@ -254,7 +254,7 @@ bool SmootherServer::findSmootherId(
 
 void SmootherServer::smoothPlan()
 {
-  auto start_time = steady_clock_.now();
+  auto start_time = this->now();
 
   RCLCPP_INFO(get_logger(), "Received a path to smooth.");
 
@@ -274,7 +274,7 @@ void SmootherServer::smoothPlan()
     result->path = goal->path;
     result->was_completed = smoothers_[current_smoother_]->smooth(
       result->path, goal->max_smoothing_duration);
-    result->smoothing_duration = steady_clock_.now() - start_time;
+    result->smoothing_duration = this->now() - start_time;
 
     if (!result->was_completed) {
       RCLCPP_INFO(
@@ -314,7 +314,7 @@ void SmootherServer::smoothPlan()
 
     action_server_->succeeded_current(result);
   } catch (nav2_core::PlannerException & e) {
-    RCLCPP_ERROR(this->get_logger(), e.what());
+    RCLCPP_ERROR(this->get_logger(), "%s", e.what());
     action_server_->terminate_current();
     return;
   } catch (std::exception & ex) {

@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "builtin_interfaces/msg/duration.hpp"
+#include "lifecycle_msgs/msg/state.hpp"
 #include "nav2_util/costmap.hpp"
 #include "nav2_util/node_utils.hpp"
 #include "nav2_util/geometry_utils.hpp"
@@ -66,6 +67,10 @@ PlannerServer::PlannerServer(const rclcpp::NodeOptions & options)
 
 PlannerServer::~PlannerServer()
 {
+  /*
+   * Backstop ensuring this state is destroyed, even if deactivate/cleanup are
+   * never called.
+   */
   planners_.clear();
   costmap_thread_.reset();
 }
@@ -194,7 +199,19 @@ PlannerServer::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
   action_server_pose_->deactivate();
   action_server_poses_->deactivate();
   plan_publisher_->on_deactivate();
-  costmap_ros_->deactivate();
+
+  /*
+   * The costmap is also a lifecycle node, so it may have already fired on_deactivate
+   * via rcl preshutdown cb. Despite the rclcpp docs saying on_shutdown callbacks fire
+   * in the order added, the preshutdown callbacks clearly don't per se, due to using an
+   * unordered_set iteration. Once this issue is resolved, we can maybe make a stronger
+   * ordering assumption: https://github.com/ros2/rclcpp/issues/2096
+   */
+  if (costmap_ros_->get_current_state().id() ==
+    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+  {
+    costmap_ros_->deactivate();
+  }
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it) {
@@ -218,13 +235,24 @@ PlannerServer::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
   action_server_poses_.reset();
   plan_publisher_.reset();
   tf_.reset();
-  costmap_ros_->cleanup();
+
+  /*
+   * Double check whether something else transitioned it to INACTIVE
+   * already, e.g. the rcl preshutdown callback.
+   */
+  if (costmap_ros_->get_current_state().id() ==
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+  {
+    costmap_ros_->cleanup();
+  }
 
   PlannerMap::iterator it;
   for (it = planners_.begin(); it != planners_.end(); ++it) {
     it->second->cleanup();
   }
+
   planners_.clear();
+  costmap_thread_.reset();
   costmap_ = nullptr;
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -344,7 +372,7 @@ PlannerServer::computePlanThroughPoses()
 {
   std::lock_guard<std::mutex> lock(dynamic_params_lock_);
 
-  auto start_time = steady_clock_.now();
+  auto start_time = this->now();
 
   // Initialize the ComputePathToPose goal and result
   auto goal = action_server_poses_->get_current_goal();
@@ -374,14 +402,16 @@ PlannerServer::computePlanThroughPoses()
     }
 
     // Get consecutive paths through these points
-    std::vector<geometry_msgs::msg::PoseStamped>::iterator goal_iter;
     geometry_msgs::msg::PoseStamped curr_start, curr_goal;
     for (unsigned int i = 0; i != goal->goals.size(); i++) {
       // Get starting point
       if (i == 0) {
         curr_start = start;
       } else {
-        curr_start = goal->goals[i - 1];
+        // pick the end of the last planning task as the start for the next one
+        // to allow for path tolerance deviations
+        curr_start = concat_path.poses.back();
+        curr_start.header = concat_path.header;
       }
       curr_goal = goal->goals[i];
 
@@ -408,7 +438,7 @@ PlannerServer::computePlanThroughPoses()
     result->path = concat_path;
     publishPlan(result->path);
 
-    auto cycle_duration = steady_clock_.now() - start_time;
+    auto cycle_duration = this->now() - start_time;
     result->planning_time = cycle_duration;
 
     if (max_planner_duration_ && cycle_duration.seconds() > max_planner_duration_) {
@@ -434,7 +464,7 @@ PlannerServer::computePlan()
 {
   std::lock_guard<std::mutex> lock(dynamic_params_lock_);
 
-  auto start_time = steady_clock_.now();
+  auto start_time = this->now();
 
   // Initialize the ComputePathToPose goal and result
   auto goal = action_server_pose_->get_current_goal();
@@ -470,7 +500,7 @@ PlannerServer::computePlan()
     // Publish the plan for visualization purposes
     publishPlan(result->path);
 
-    auto cycle_duration = steady_clock_.now() - start_time;
+    auto cycle_duration = this->now() - start_time;
     result->planning_time = cycle_duration;
 
     if (max_planner_duration_ && cycle_duration.seconds() > max_planner_duration_) {
@@ -564,6 +594,7 @@ void PlannerServer::isPathValid(
      * The lethal check starts at the closest point to avoid points that have already been passed
      * and may have become occupied
      */
+    std::unique_lock<nav2_costmap_2d::Costmap2D::mutex_t> lock(*(costmap_->getMutex()));
     unsigned int mx = 0;
     unsigned int my = 0;
     for (unsigned int i = closest_point_index; i < request->path.poses.size(); ++i) {
